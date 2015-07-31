@@ -184,6 +184,72 @@ for k=1:numCategories
     end%for
     if (size(tileImage,3)==1), tileImage=repmat(tileImage,[1 1 3]); end;
 
+    %%%%%
+    bound = 1;
+    if bound && any(resultUpsampled(:));
+       %%%%% TODO: make variables more congruent and clean up before merging
+       [yy xx]       = find(resultUpsampled);
+       nactive       = length(yy);
+       classvec      = zeros(nactive,2);
+       classvec(:,1) = xx; %classvec must be [x y] coordinate pairs for DBSCAN
+       classvec(:,2) = yy;
+       density_val = 10;
+       Eps = '';
+       boxThickness = 5;
+
+       [cluster_vector,type_vector,eps_val] = dbscan(classvec,density_val, Eps); %DBSCAN
+       max_class_vector = max(cluster_vector); % how many clusters
+
+       if max_class_vector < 0
+          disp(['doDBSCAN: No clusters were made by DBSCAN!'])
+          %boxes = 0;
+       else
+          disp(['doDBSCAN: Number of clusters = ',num2str(max_class_vector)])
+          clusterpoints = cat(2,cluster_vector',classvec);
+
+          %%%%%%%%%%%%%%%%%%
+          % Generate box info
+          %%%%%%%%%%%%%%%%%%
+          %boxes(max_class_vector).bp = 0;  % Coordinate pairs of corners of box
+          %boxes(max_class_vector).cp = 0;  % Cluster points that created the box
+          %boxes(max_class_vector).cf = 0;  % Confidence associated with the box
+          %boxes(max_class_vector).ar = 0;  % Area of the box
+          %boxes(max_class_vector).A  = 0;  % Minimum volume ellipse equation for box
+          %boxes(max_class_vector).C  = 0;  % Center of box ([x y])
+
+          for l=1:max_class_vector
+             classpoints = clusterpoints(clusterpoints(:,1)==l,2:3);
+             %%%bbox{l} = props(l).BoundingBox;
+
+             bbox{l}(1) = min(classpoints(:,2)); % min y
+             bbox{l}(2) = min(classpoints(:,1)); % min x
+             bbox{l}(3) = max(classpoints(:,2)); % max y
+             bbox{l}(4) = max(classpoints(:,1)); % max x
+             %% TODO: make sure this doesn't step outside the image (make boxes encompass max/min points)
+             tileImage(bbox{l}(1) : bbox{l}(1) + boxThickness, bbox{l}(2) :  bbox{l}(4), 1) = 1;
+             tileImage(bbox{l}(3) - boxThickness : bbox{l}(3), bbox{l}(2) :  bbox{l}(4), 1) = 1;
+             tileImage(bbox{l}(1) : bbox{l}(3), bbox{l}(2) : bbox{l}(2) + boxThickness, 1) = 1;
+             tileImage(bbox{l}(1) : bbox{l}(3), bbox{l}(4) - boxThickness : bbox{l}(4), 1) = 1;
+
+             %%rectangle('Position', bbox{i}, 'EdgeColor', [0,1,0]);
+             %%disp(i);
+
+             %   [A,C] = minVolEllipse(ellipsepoints,0.001);
+             %   [ar,boxpoints] = getBoxDimensions(A,C,height,width);
+             %   clustpts = find(clusterpoints(:,1,1)==i);
+             %   confidence = getConfidence(classifier,length(clustpts));
+             %   %boxes(i).bp = boxpoints;
+             %   %boxes(i).cp = clustpts;
+             %   %boxes(i).cf = confidence;
+             %   %boxes(i).ar = ar;
+             %   %boxes(i).A  = A;
+             %   %boxes(i).C  = C;
+
+          end
+       end
+    end
+    %%%%%
+
     maxConfCategory = max(max(confData(:,:,category)));
     if any(winningFeature==category) && maxConfCategory >= highlightThreshold;
         captionColor = 'blue';
